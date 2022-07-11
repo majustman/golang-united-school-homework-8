@@ -27,14 +27,19 @@ func Perform(args Arguments, writer io.Writer) error {
 		return errors.New("-operation flag has to be specified")
 	}
 
-	_, ok = args["fileName"]
+	fileName, ok := args["fileName"]
 	if !ok {
 		return errors.New("-fileName flag has to be specified")
 	}
 
 	switch oper {
 	case "add":
-		err := addItem(args)
+		err := addItem(fileName, args)
+		if err != nil {
+			return err
+		}
+	case "list":
+		err := list(fileName, writer)
 		if err != nil {
 			return err
 		}
@@ -60,9 +65,15 @@ func parseArgs() Arguments {
 	flag.StringVar(&itemFlag, "item", "", "value for the item argument")
 	flag.StringVar(&fileFlag, "fileName", "", "value for the fileName argument")
 	flag.Parse()
-	res["operation"] = operFlag
-	res["item"] = replaceChar(itemFlag)
-	res["fileName"] = fileFlag
+	if operFlag != "" {
+		res["operation"] = operFlag
+	}
+	if itemFlag != "" {
+		res["item"] = replaceChar(itemFlag)
+	}
+	if fileFlag != "" {
+		res["fileName"] = fileFlag
+	}
 	return res
 }
 
@@ -78,9 +89,7 @@ func replaceChar(input string) (output string) {
 	return
 }
 
-func addItem(args Arguments) error {
-
-	fileName := args["fileName"]
+func addItem(fileName string, args Arguments) error {
 
 	list, err := readFile(fileName)
 	if err != nil {
@@ -140,4 +149,19 @@ func createUserFromArg(args Arguments) (user, error) {
 		return user{}, fmt.Errorf("creating user error: %v", err)
 	}
 	return u, nil
+}
+
+func list(fileName string, writer io.Writer) error {
+	content, err := ioutil.ReadFile(fileName)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("listing file error: %v", err)
+	}
+	_, err = writer.Write(content)
+	if err != nil {
+		return fmt.Errorf("listing file error: %v", err)
+	}
+	return nil
 }
