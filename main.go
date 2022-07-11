@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -43,6 +44,15 @@ func Perform(args Arguments, writer io.Writer) error {
 		if err != nil {
 			return err
 		}
+	case "remove":
+		id, ok := args["id"]
+		if !ok {
+			return errors.New("-id flag has to be specified")
+		}
+		err := removeUser(id, fileName)
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("operation %s not allowed", oper)
 	}
@@ -58,12 +68,13 @@ func main() {
 
 func parseArgs() Arguments {
 	var (
-		res                          Arguments = make(map[string]string)
-		operFlag, itemFlag, fileFlag string
+		res                                  Arguments = make(map[string]string)
+		operFlag, itemFlag, fileFlag, idFlag string
 	)
 	flag.StringVar(&operFlag, "operation", "", "value for the operation argument")
 	flag.StringVar(&itemFlag, "item", "", "value for the item argument")
 	flag.StringVar(&fileFlag, "fileName", "", "value for the fileName argument")
+	flag.StringVar(&idFlag, "id", "", "value for the fileName argument")
 	flag.Parse()
 	if operFlag != "" {
 		res["operation"] = operFlag
@@ -74,6 +85,10 @@ func parseArgs() Arguments {
 	if fileFlag != "" {
 		res["fileName"] = fileFlag
 	}
+	if idFlag != "" {
+		res["id"] = idFlag
+	}
+	fmt.Println(res)
 	return res
 }
 
@@ -162,6 +177,28 @@ func list(fileName string, writer io.Writer) error {
 	_, err = writer.Write(content)
 	if err != nil {
 		return fmt.Errorf("listing file error: %v", err)
+	}
+	return nil
+}
+
+func removeUser(id string, fileName string) error {
+	users, err := readFile(fileName)
+	if err != nil {
+		return fmt.Errorf("removing user error: %v", err)
+	}
+	n, err := strconv.Atoi(id)
+	if err != nil {
+		return fmt.Errorf("removing user error: %v", err)
+	}
+	var res []user
+	for _, u := range users {
+		if u.ID != n {
+			res = append(res, u)
+		}
+	}
+	err = writeToFile(fileName, res)
+	if err != nil {
+		return fmt.Errorf("removing user error: %v", err)
 	}
 	return nil
 }
