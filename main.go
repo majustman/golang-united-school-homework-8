@@ -22,19 +22,23 @@ type user struct {
 
 func Perform(args Arguments, writer io.Writer) error {
 
-	oper, ok := args["operation"]
-	if !ok || oper == "" {
+	oper := args["operation"]
+	if oper == "" {
 		return errors.New("-operation flag has to be specified")
 	}
 
-	fileName, ok := args["fileName"]
-	if !ok {
+	fileName := args["fileName"]
+	if fileName == "" {
 		return errors.New("-fileName flag has to be specified")
 	}
 
 	switch oper {
 	case "add":
-		err := addItem(fileName, args)
+		item := args["item"]
+		if item == "" {
+			return errors.New("-item flag has to be specified")
+		}
+		err := addItem(fileName, args, writer)
 		if err != nil {
 			return err
 		}
@@ -44,29 +48,33 @@ func Perform(args Arguments, writer io.Writer) error {
 			return err
 		}
 	case "remove":
-		id, ok := args["id"]
-		if !ok {
+		id := args["id"]
+		if id == "" {
 			return errors.New("-id flag has to be specified")
 		}
 		err := removeUser(id, fileName)
+		if err == fs.ErrNotExist {
+			fmt.Fprintf(writer, "Item with id %s not found", id)
+			return nil
+		}
 		if err != nil {
 			return err
 		}
 	case "findById":
-		id, ok := args["id"]
-		if !ok {
+		id := args["id"]
+		if id == "" {
 			return errors.New("-id flag has to be specified")
 		}
-		u, err := findByID(id, fileName)
+		content, err := findByID(id, fileName)
 		if err == fs.ErrNotExist {
-			fmt.Fprintln(writer, "")
+			fmt.Fprint(writer, "")
 		} else if err != nil {
 			return err
 		} else {
-			fmt.Fprintln(writer, u)
+			fmt.Fprintf(writer, "%s", content)
 		}
 	default:
-		return fmt.Errorf("operation %s not allowed", oper)
+		return fmt.Errorf("Operation %s not allowed!", oper)
 	}
 	return nil
 }
@@ -100,7 +108,6 @@ func parseArgs() Arguments {
 	if idFlag != "" {
 		res["id"] = idFlag
 	}
-	fmt.Println(res)
 	return res
 }
 
@@ -116,7 +123,7 @@ func replaceChar(input string) (output string) {
 	return
 }
 
-func addItem(fileName string, args Arguments) error {
+func addItem(fileName string, args Arguments, w io.Writer) error {
 
 	list, err := readFile(fileName)
 	if err != nil {
@@ -126,6 +133,10 @@ func addItem(fileName string, args Arguments) error {
 	u, err := createUserFromArg(args)
 	if err != nil {
 		return fmt.Errorf("adding operation error: %v", err)
+	}
+	if isIDExist(u.ID, list) {
+		fmt.Fprintf(w, "Item with id %s already exists", u.ID)
+		return nil
 	}
 	list = append(list, u)
 
@@ -164,11 +175,7 @@ func writeToFile(fileName string, list []user) error {
 }
 
 func createUserFromArg(args Arguments) (user, error) {
-	content, ok := args["item"]
-	if !ok {
-		return user{}, errors.New("-item flag has to be specified")
-	}
-
+	content := args["item"]
 	dec := json.NewDecoder(strings.NewReader(content))
 	var u user
 	err := dec.Decode(&u)
@@ -176,6 +183,15 @@ func createUserFromArg(args Arguments) (user, error) {
 		return user{}, fmt.Errorf("creating user error: %v", err)
 	}
 	return u, nil
+}
+
+func isIDExist(id string, users []user) bool {
+	for _, u := range users {
+		if id == u.ID {
+			return true
+		}
+	}
+	return false
 }
 
 func list(fileName string, writer io.Writer) error {
@@ -204,6 +220,9 @@ func removeUser(id, fileName string) error {
 			res = append(res, u)
 		}
 	}
+	if len(res) == len(users) {
+		return fs.ErrNotExist
+	}
 	err = writeToFile(fileName, res)
 	if err != nil {
 		return fmt.Errorf("removing user error: %v", err)
@@ -211,15 +230,15 @@ func removeUser(id, fileName string) error {
 	return nil
 }
 
-func findByID(id, fileName string) (user, error) {
+func findByID(id, fileName string) ([]byte, error) {
 	users, err := readFile(fileName)
 	if err != nil {
-		return user{}, fmt.Errorf("finding user by id error: %v", err)
+		return []byte{}, fmt.Errorf("finding user by id error: %v", err)
 	}
 	for _, u := range users {
-		if u.ID != id {
-			return u, nil
+		if u.ID == id {
+			return json.Marshal(u)
 		}
 	}
-	return user{}, fs.ErrNotExist
+	return []byte{}, fs.ErrNotExist
 }
