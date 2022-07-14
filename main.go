@@ -23,7 +23,7 @@ type user struct {
 func Perform(args Arguments, writer io.Writer) error {
 
 	oper, ok := args["operation"]
-	if !ok {
+	if !ok || oper == "" {
 		return errors.New("-operation flag has to be specified")
 	}
 
