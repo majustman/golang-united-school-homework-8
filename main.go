@@ -52,6 +52,19 @@ func Perform(args Arguments, writer io.Writer) error {
 		if err != nil {
 			return err
 		}
+	case "findById":
+		id, ok := args["id"]
+		if !ok {
+			return errors.New("-id flag has to be specified")
+		}
+		u, err := findByID(id, fileName)
+		if err == fs.ErrNotExist {
+			fmt.Fprintln(writer, "")
+		} else if err != nil {
+			return err
+		} else {
+			fmt.Fprintln(writer, u)
+		}
 	default:
 		return fmt.Errorf("operation %s not allowed", oper)
 	}
@@ -180,7 +193,7 @@ func list(fileName string, writer io.Writer) error {
 	return nil
 }
 
-func removeUser(id string, fileName string) error {
+func removeUser(id, fileName string) error {
 	users, err := readFile(fileName)
 	if err != nil {
 		return fmt.Errorf("removing user error: %v", err)
@@ -196,4 +209,17 @@ func removeUser(id string, fileName string) error {
 		return fmt.Errorf("removing user error: %v", err)
 	}
 	return nil
+}
+
+func findByID(id, fileName string) (user, error) {
+	users, err := readFile(fileName)
+	if err != nil {
+		return user{}, fmt.Errorf("finding user by id error: %v", err)
+	}
+	for _, u := range users {
+		if u.ID != id {
+			return u, nil
+		}
+	}
+	return user{}, fs.ErrNotExist
 }
