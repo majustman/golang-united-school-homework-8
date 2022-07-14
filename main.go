@@ -9,14 +9,13 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"strconv"
 	"strings"
 )
 
 type Arguments map[string]string
 
 type user struct {
-	ID    int    `json:"id"`
+	ID    string `json:"id"`
 	Email string `json:"email"`
 	Age   int    `json:"age"`
 }
@@ -186,13 +185,9 @@ func removeUser(id string, fileName string) error {
 	if err != nil {
 		return fmt.Errorf("removing user error: %v", err)
 	}
-	n, err := strconv.Atoi(id)
-	if err != nil {
-		return fmt.Errorf("removing user error: %v", err)
-	}
 	var res []user
 	for _, u := range users {
-		if u.ID != n {
+		if u.ID != id {
 			res = append(res, u)
 		}
 	}
